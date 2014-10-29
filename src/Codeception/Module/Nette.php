@@ -33,8 +33,13 @@ class Nette extends Framework
 	 */
 	public function __construct($config = array())
 	{
-		$this->config = array(
-			'configFiles' => array(),
+		foreach ($config['configFiles'] as &$file)
+		{
+			$file['path'] = WWW_DIR.DIRECTORY_SEPARATOR.$file['path'];
+		}
+		$config['configFiles'][] = array(
+			'path' => __DIR__ . '/config.neon',
+			'section' => NULL
 		);
 		parent::__construct($config);
 	}
