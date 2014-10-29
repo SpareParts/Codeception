@@ -53,9 +53,10 @@ class Nette extends Framework
 		$this->detectSuiteName($settings);
 		$path = pathinfo($settings['path'], PATHINFO_DIRNAME);
 		$tempDir = $path . DIRECTORY_SEPARATOR . '_temp' . DIRECTORY_SEPARATOR . $this->suite;
+		$this->tempDir = $tempDir;
 
 		self::purge($tempDir);
-		$this->configurator = new Configurator();
+		$this->configurator = new \Ulozto\Application\Configurator();
 		$this->configurator->setDebugMode(FALSE);
 		$this->configurator->setTempDirectory($tempDir);
 		$this->configurator->addParameters(array(
@@ -65,24 +66,45 @@ class Nette extends Framework
 		));
 
 		$files = $this->config['configFiles'];
-		$files[] = __DIR__ . '/config.neon';
+//		$files[] = __DIR__ . '/config.neon';
 		foreach ($files as $file) {
-			$this->configurator->addConfig($file);
+			$this->configurator->addConfig($file['path'], $file['section']);
 		}
 
 		// Generates and loads the container class.
 		// The actual container is created later.
-		$this->configurator->createContainer();
+		$this->configurator->getContainer();
 	}
 
 	public function _before(TestCase $test)
 	{
-		$class = $this->getContainerClass();
+//		$class = $this->getContainerClass();
 		// Cannot use $this->configurator->createContainer() directly beacuse it would call $container->initialize().
 		// Container initialization is called laiter by NetteConnector.
-		$this->container = new $class;
+//		$this->container = new $class;
+		$tempDir = $this->tempDir;
+
+		$this->configurator = new \Ulozto\Application\Configurator();
+		$this->configurator->setDebugMode(FALSE);
+		$this->configurator->setTempDirectory($tempDir);
+		$this->configurator->addParameters(array(
+			'container' => array(
+				'class' => $this->getContainerClass(),
+			),
+		));
+
+		$files = $this->config['configFiles'];
+//		$files[] = __DIR__ . '/config.neon';
+		foreach ($files as $file) {
+			$this->configurator->addConfig($file['path'], $file['section']);
+		}
+
+		// Generates and loads the container class.
+		// The actual container is created later.
+		$container = $this->configurator->getContainer();
+
 		$this->client = new NetteConnector();
-		$this->client->setContainer($this->container);
+		$this->client->setContainer($container);
 		// TODO: make this configurable
 		$this->client->followRedirects(FALSE);
 		parent::_before($test);
@@ -109,7 +131,7 @@ class Nette extends Framework
 			$this->fail($e->getMessage());
 		}
 	}
-	
+
 	public function seeRedirectTo($url)
 	{
 		$response = $this->container->getByType('Nette\Http\IResponse');
