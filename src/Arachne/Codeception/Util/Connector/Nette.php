@@ -2,8 +2,10 @@
 
 namespace Arachne\Codeception\Util\Connector;
 
+use Arachne\Codeception\IContainerFactory;
 use Nette\DI\Container;
 use Nette\Http\IResponse;
+use Nette\Http\Session;
 use Symfony\Component\BrowserKit\Client;
 use Symfony\Component\BrowserKit\Request;
 use Symfony\Component\BrowserKit\Response;
@@ -17,10 +19,20 @@ class Nette extends Client
 	/** @var Container */
 	protected $container;
 
-	public function setContainer(Container $container)
+	/**
+	 * @var IContainerFactory
+	 */
+	protected $containerFactory;
+
+
+	/**
+	 * @param \Arachne\Codeception\IContainerFactory $containerFactory
+	 */
+	public function setContainerFactory(IContainerFactory $containerFactory)
 	{
-		$this->container = $container;
+		$this->containerFactory = $containerFactory;
 	}
+
 
 	/**
 	 * @param Request $request
@@ -36,8 +48,10 @@ class Nette extends Client
 
 		$_SERVER['REQUEST_METHOD'] = strtoupper($request->getMethod());
 		$_SERVER['REQUEST_URI'] = $uri;
+		$_POST = ($_SERVER['REQUEST_METHOD'] == 'POST') ? $request->getParameters() : [];
 
 		// Container initialization can't be called earlier because Nette\Http\IRequest service might be initialized too soon and amOnPage method would not work anymore.
+		$this->container = $this->containerFactory->createContainer();
 		$this->container->initialize();
 
 		// The HTTP code from previous test sometimes survives in http_response_code() so it's necessary to reset it manually.
@@ -53,6 +67,10 @@ class Nette extends Client
 			ob_end_clean();
 			throw $e;
 		}
+
+
+//TODO
+//		Session::$started = FALSE;
 
 		$code = $httpResponse->getCode();
 		$headers = $httpResponse->getHeaders();

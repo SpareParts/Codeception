@@ -138,6 +138,7 @@ class Response extends Object implements IResponse
 	 */
 	public function setCookie($name, $value, $time, $path = NULL, $domain = NULL, $secure = NULL, $httpOnly = NULL)
 	{
+		$this->addHeader('Set-Cookie', $name.'='.$value.'; Expires='.date('c', $time));
 		return $this;
 	}
 

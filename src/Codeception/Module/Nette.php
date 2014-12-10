@@ -2,6 +2,7 @@
 
 namespace Codeception\Module;
 
+use Arachne\Codeception\IContainerFactory;
 use Arachne\Codeception\Util\Connector\Nette as NetteConnector;
 use Codeception\TestCase;
 use Codeception\Lib\Framework;
@@ -16,7 +17,7 @@ use RecursiveIteratorIterator;
 /**
  * @author Jáchym Toušek
  */
-class Nette extends Framework
+class Nette extends Framework implements IContainerFactory
 {
 
 	/** @var Configurator */
@@ -27,6 +28,11 @@ class Nette extends Framework
 
 	/** @var string */
 	private $suite;
+
+	/**
+	 * @var string
+	 */
+	protected $tempDir;
 
 	/**
 	 * @var array $config
@@ -83,35 +89,40 @@ class Nette extends Framework
 
 	public function _before(TestCase $test)
 	{
-//		$class = $this->getContainerClass();
-		// Cannot use $this->configurator->createContainer() directly beacuse it would call $container->initialize().
-		// Container initialization is called laiter by NetteConnector.
-//		$this->container = new $class;
-		$tempDir = $this->tempDir;
-
-		$this->configurator = new \Ulozto\Application\Configurator();
-		$this->configurator->setDebugMode(FALSE);
-		$this->configurator->setTempDirectory($tempDir);
-		$this->configurator->addParameters(array(
-			'container' => array(
-				'class' => $this->getContainerClass(),
-			),
-		));
-
-		$files = $this->config['configFiles'];
-//		$files[] = __DIR__ . '/config.neon';
-		foreach ($files as $file) {
-			$this->configurator->addConfig($file['path'], $file['section']);
-		}
-
-		// Generates and loads the container class.
-		// The actual container is created later.
-		$container = $this->configurator->getContainer();
+////		$class = $this->getContainerClass();
+//		// Cannot use $this->configurator->createContainer() directly beacuse it would call $container->initialize().
+//		// Container initialization is called laiter by NetteConnector.
+////		$this->container = new $class;
+//		$tempDir = $this->tempDir;
+//
+//		$this->configurator = new \Ulozto\Application\Configurator();
+//		$this->configurator->setDebugMode(FALSE);
+//		$this->configurator->setTempDirectory($tempDir);
+//		$this->configurator->addParameters(array(
+//			'container' => array(
+//				'class' => $this->getContainerClass(),
+//			),
+//		));
+//
+//		$files = $this->config['configFiles'];
+////		$files[] = __DIR__ . '/config.neon';
+//		foreach ($files as $file) {
+//			$this->configurator->addConfig($file['path'], $file['section']);
+//		}
+//
+//		// Generates and loads the container class.
+//		// The actual container is created later.
+//		$container = $this->configurator->getContainer();
+//
+//		$this->client = new NetteConnector();
+//		$this->client->setContainer($container);
+//		// TODO: make this configurable
+//		$this->client->followRedirects(FALSE);
 
 		$this->client = new NetteConnector();
-		$this->client->setContainer($container);
-		// TODO: make this configurable
+		$this->client->setContainerFactory($this);
 		$this->client->followRedirects(FALSE);
+
 		parent::_before($test);
 	}
 
@@ -187,5 +198,36 @@ class Nette extends Framework
 			}
 		}
 	}
+
+
+	/**
+	 * @return Container
+	 */
+	public function createContainer()
+	{
+		$tempDir = $this->tempDir;
+
+		$this->configurator = new \Ulozto\Application\Configurator();
+		$this->configurator->setDebugMode(FALSE);
+		$this->configurator->setTempDirectory($tempDir);
+		$this->configurator->addParameters(array(
+			'container' => array(
+				'class' => $this->getContainerClass(),
+			),
+		));
+
+		$files = $this->config['configFiles'];
+//		$files[] = __DIR__ . '/config.neon';
+		foreach ($files as $file) {
+			$this->configurator->addConfig($file['path'], $file['section']);
+		}
+
+		// Generates and loads the container class.
+		// The actual container is created later.
+		$container = $this->configurator->getContainer();
+		
+		return $container;
+	}
+
 
 }
