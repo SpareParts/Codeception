@@ -201,7 +201,7 @@ class Nette extends Framework implements IContainerFactory
 
 
 	/**
-	 * @return Container
+	 * @return Container|\SystemContainer
 	 */
 	public function createContainer()
 	{
@@ -225,7 +225,7 @@ class Nette extends Framework implements IContainerFactory
 		// Generates and loads the container class.
 		// The actual container is created later.
 		$container = $this->configurator->getContainer();
-		
+
 		return $container;
 	}
 
