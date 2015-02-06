@@ -121,7 +121,7 @@ class Nette extends Framework implements IContainerFactory
 
 		$this->client = new NetteConnector();
 		$this->client->setContainerFactory($this);
-		$this->client->followRedirects(FALSE);
+//		$this->client->followRedirects(FALSE);
 
 		parent::_before($test);
 	}
@@ -203,28 +203,90 @@ class Nette extends Framework implements IContainerFactory
 	/**
 	 * @return Container|\SystemContainer
 	 */
-	public function createContainer()
+//	public function createContainer()
+//	{
+//		$tempDir = $this->tempDir;
+//
+//		$this->configurator = new \Ulozto\Application\Configurator();
+//		$this->configurator->setDebugMode(FALSE);
+//		$this->configurator->setTempDirectory($tempDir);
+//		$this->configurator->addParameters(array(
+//			'container' => array(
+//				'class' => $this->getContainerClass(),
+//			),
+//		));
+//
+//		$files = $this->config['configFiles'];
+////		$files[] = __DIR__ . '/config.neon';
+//		foreach ($files as $file) {
+//			$this->configurator->addConfig($file['path'], $file['section']);
+//		}
+//
+//		// Generates and loads the container class.
+//		// The actual container is created later.
+//		$container = $this->configurator->getContainer();
+//
+//		return $container;
+//	}
+
+
+	/**
+	 * Ugly hack to make it work the same way our ancient Configurator works.
+	 *
+	 * @return Container|\SystemContainer
+	 */
+	public function createContainer($tempDir = '/Tests/_temp')
 	{
-		$tempDir = $this->tempDir;
+		$baseDir = realpath(__DIR__ . '/../../../../../..');
+		$tempDir = $baseDir . $tempDir;
 
-		$this->configurator = new \Ulozto\Application\Configurator();
-		$this->configurator->setDebugMode(FALSE);
-		$this->configurator->setTempDirectory($tempDir);
-		$this->configurator->addParameters(array(
-			'container' => array(
-				'class' => $this->getContainerClass(),
-			),
-		));
+		// config files
+		$files[] = $baseDir . '/Nodus/App/config.neon';
+		$files[] = $baseDir . '/Ulozto/App/config.neon';
+		$files[] = $baseDir . '/Ulozto/App/local-config.neon';
+		$files[] = __DIR__ . '/config.neon';
 
-		$files = $this->config['configFiles'];
-//		$files[] = __DIR__ . '/config.neon';
-		foreach ($files as $file) {
-			$this->configurator->addConfig($file['path'], $file['section']);
+		$configurator = new Configurator();
+		foreach ($files as $file)
+		{
+			$configurator->addConfig($file, 'test');
 		}
+		$configurator->setDebugMode(FALSE);
+		$configurator->setTempDirectory($tempDir);
+		$configurator->addParameters([
+			'tempDir' => $tempDir,
+			'coreAppDir' => $baseDir . '/Nodus/App',
+			'appDir' => $baseDir . '/Ulozto/App',
+			'appDirs' => [$baseDir . '/Nodus/App', $baseDir . '/Ulozto/App'],
+			'coreAppName' => 'Nodus',
+			'appName' => 'Ulozto',
+			'appNamespaces' => ['Nodus', 'Ulozto'],
+			'container' => [
+				'class' => 'SystemContainer'.rand(1, 10000),
+				'parent' => 'Nette\DI\Container'
+			]
+		]);
+		$loader = $configurator->createRobotLoader();
+		$loader->addDirectory($baseDir . '/Nodus');
+		$loader->addDirectory($baseDir . '/Ulozto');
+		$loader->addDirectory($baseDir . '/Libs');
+		$loader->register();
 
-		// Generates and loads the container class.
-		// The actual container is created later.
-		$container = $this->configurator->getContainer();
+		$container = $configurator->createContainer();
+
+		$application = $container->application;
+		\Nodus\SimpleModel::setContext($container);
+		$application->registerModule('Files');
+		$application->registerModule('Users');
+		$application->registerModule('Search');
+		$application->registerModule('Credit');
+		$application->registerModule('ExternalStorages');
+		$application->registerModule('FileManager');
+		$application->registerModule('Messages');
+		$application->registerModule('Debug');
+		$application->registerModule('Api');
+		$application->registerModule('Home');
+		$application->registerModule('StaticPages');
 
 		return $container;
 	}

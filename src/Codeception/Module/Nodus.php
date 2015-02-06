@@ -37,6 +37,13 @@ class Nodus extends Framework
 	/**
 	 * @var array
 	 */
+	protected $config = [
+		'useDebugApi' => 1,
+	];
+
+	/**
+	 * @var array
+	 */
 	protected $requiredFields = ['configMap', 'dbDsn', 'debugApi'];
 
 	/**
@@ -80,6 +87,7 @@ class Nodus extends Framework
 	 * Get the fixture path
 	 *
 	 * @param array $settings
+	 * @throws RemoteException
 	 */
 	public function _beforeSuite($settings = [])
 	{
@@ -87,9 +95,12 @@ class Nodus extends Framework
 		$this->fixturesDir = $settings['path'] . '_fixtures' . DIRECTORY_SEPARATOR;
 
 		// switch application to test environment
-		if ($this->curlRequest($url = $this->config['debugApi']['enableTest']))
+		if ($this->config['useDebugApi'])
 		{
-			throw new RemoteException('Unable to enable `test` mode on remote application using url: '.$url);
+			if ($this->curlRequest($url = $this->config['debugApi']['enableTest']))
+			{
+				throw new RemoteException('Unable to enable `test` mode on remote application using url: '.$url);
+			}
 		}
 	}
 
@@ -97,9 +108,12 @@ class Nodus extends Framework
 	public function _afterSuite($settings = [])
 	{
 		// turn off the test environment
-		if ($this->curlRequest($url = $this->config['debugApi']['disableTest']))
+		if ($this->config['useDebugApi'])
 		{
-			throw new RemoteException('Unable to disable `test` mode on remote application using url: '.$url);
+			if ($this->curlRequest($url = $this->config['debugApi']['disableTest']))
+			{
+				throw new RemoteException('Unable to disable `test` mode on remote application using url: ' . $url);
+			}
 		}
 	}
 

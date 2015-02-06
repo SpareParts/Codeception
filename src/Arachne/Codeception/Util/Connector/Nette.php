@@ -36,7 +36,9 @@ class Nette extends Client
 
 	/**
 	 * @param Request $request
+	 *
 	 * @return Response
+	 * @throws \Exception
 	 */
 	public function doRequest($request)
 	{

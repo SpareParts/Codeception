@@ -1,6 +1,15 @@
-nette:
-	security:
-		frames: true
+common:
+	nette:
+		security:
+			frames: true
 
-extensions:
-	Arachne.Codeception.Http: Arachne\Codeception\Http\DI\HttpExtension
+	extensions:
+		Arachne.Codeception.Http: Arachne\Codeception\Http\DI\HttpExtension
+
+
+	parameters:
+		translator:
+			gettextOn: 1
+
+
+test < common:
