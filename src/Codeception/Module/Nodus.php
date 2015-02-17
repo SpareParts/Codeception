@@ -5,6 +5,9 @@ use Codeception\Exception\RemoteException;
 use Codeception\Lib\Connector\Guzzle;
 use Codeception\Lib\Framework;
 use Codeception\TestCase;
+use DerpTest\Machinist\Blueprint;
+use DerpTest\Machinist\Machinist;
+use DerpTest\Machinist\Store\SqlStore;
 use GuzzleHttp\Client;
 use GuzzleHttp\Url;
 use Nette\Configurator;
@@ -53,12 +56,18 @@ class Nodus extends Framework
 
 
 	/**
+	 * @var \SystemContainer|Container
+	 */
+	protected $container;
+
+
+	/**
 	 * Obtain configuration from project.
 	 */
 	public function _initialize()
 	{
 		// prepare the container to get project configuration
-		$container = $this->createContainer();
+		$this->container = $container = $this->createContainer();
 
 		// settings from project config
 		foreach ($this->config['configMap'] as $map)
@@ -84,6 +93,20 @@ class Nodus extends Framework
 
 
 	/**
+	 * @return Container|\SystemContainer
+	 */
+	public function _getContainer()
+	{
+		if ($this->container)
+		{
+			return $this->container;
+		}
+		$this->container = $container = $this->createContainer();
+		return $container;
+	}
+
+
+	/**
 	 * Get the fixture path
 	 *
 	 * @param array $settings
@@ -102,6 +125,21 @@ class Nodus extends Framework
 				throw new RemoteException('Unable to enable `test` mode on remote application using url: '.$url);
 			}
 		}
+
+		// initialize Machinist
+
+		/** @var Db $dbModule */
+		$dbModule = $this->getModule('Db');
+		Machinist::store(SqlStore::fromPdo($dbModule->dbh));
+
+
+		// initialize memcache
+		/** @var Memcache $memcacheModule */
+//		$memcacheModule = $this->getModule('Memcache');
+//		$memcacheModule->_reconfigure([
+//			'host' => $this->projectConfig['memcached']['hosts'],
+//			'port' => $this->projectConfig['memcached']['port'],
+//		]);
 	}
 
 
@@ -131,10 +169,15 @@ class Nodus extends Framework
 
 	public function _after(TestCase $testCase)
 	{
+		// clean machinist fixtures
+		$this->haveFixtureFactory()->wipeAll(FALSE, ['pricelist_subchannel', 'pricelist_channel']);
+
+		// clean file fixtures
 		foreach ($this->undoFixtureFiles as $file) {
-			$this->haveFixture($file);
+			$this->haveFileFixture($file);
 		}
 		$this->undoFixtureFiles = [];
+
 	}
 
 
@@ -152,10 +195,31 @@ class Nodus extends Framework
 
 
 	/**
+	 * @return \DerpTest\Machinist\Machinist
+	 */
+	public function haveFixtureFactory()
+	{
+		return Machinist::instance();
+	}
+
+
+	/**
+	 * @param string|Blueprint $blueprint
+	 * @param array $values
+	 * @return \DerpTest\Machinist\Machine
+	 * @throws \DerpTest\Machinist\MakeException
+	 */
+	public function createFixture($blueprint, $values = [])
+	{
+		return Machinist::instance()->blueprint($blueprint)->make($values);
+	}
+
+
+	/**
 	 * @param string $fixtureFile
 	 * @param string $undoFixtureFile
 	 */
-	public function haveFixture($fixtureFile, $undoFixtureFile = NULL)
+	public function haveFileFixture($fixtureFile, $undoFixtureFile = NULL)
 	{
 		/** @var Db $dbModule */
 		$dbModule = $this->getModule('Db');
@@ -179,6 +243,43 @@ class Nodus extends Framework
 	 */
 	protected function createContainer($tempDir = '/Tests/_temp')
 	{
+//		$baseDir = realpath(__DIR__ . '/../../../../../..');
+//		$tempDir = $baseDir . $tempDir;
+//
+//		// config files
+//		$files[] = $baseDir . '/Nodus/App/config.neon';
+//		$files[] = $baseDir . '/Ulozto/App/config.neon';
+//		$files[] = $baseDir . '/Ulozto/App/local-config.neon';
+//
+//		$configurator = new Configurator();
+//		foreach ($files as $file)
+//		{
+//			$configurator->addConfig($file, 'test');
+//		}
+//		$configurator->setDebugMode(FALSE);
+//		$configurator->setTempDirectory($tempDir);
+//		$configurator->addParameters([
+//			'tempDir' => $tempDir,
+//			'coreAppDir' => $baseDir . '/Nodus/App',
+//			'appDir' => $baseDir . '/Ulozto/App',
+//			'appDirs' => [$baseDir . '/Nodus/App', $baseDir . '/Ulozto/App'],
+//			'coreAppName' => 'Nodus',
+//			'appName' => 'Ulozto',
+//			'appNamespaces' => ['Nodus', 'Ulozto'],
+//		]);
+//		$loader = $configurator->createRobotLoader();
+//		$loader->addDirectory($baseDir . '/Nodus');
+//		$loader->addDirectory($baseDir . '/Ulozto');
+//		$loader->addDirectory($baseDir . '/Libs');
+//		$loader->register();
+//
+//		$container = $configurator->createContainer();
+//		return $container;
+		/**
+		 * Ugly hack to make it work the same way our ancient Configurator works.
+		 *
+		 * @return Container|\SystemContainer
+		 */
 		$baseDir = realpath(__DIR__ . '/../../../../../..');
 		$tempDir = $baseDir . $tempDir;
 
@@ -186,6 +287,7 @@ class Nodus extends Framework
 		$files[] = $baseDir . '/Nodus/App/config.neon';
 		$files[] = $baseDir . '/Ulozto/App/config.neon';
 		$files[] = $baseDir . '/Ulozto/App/local-config.neon';
+		$files[] = __DIR__ . '/config.neon';
 
 		$configurator = new Configurator();
 		foreach ($files as $file)
@@ -202,6 +304,10 @@ class Nodus extends Framework
 			'coreAppName' => 'Nodus',
 			'appName' => 'Ulozto',
 			'appNamespaces' => ['Nodus', 'Ulozto'],
+			'container' => [
+				'class' => 'SystemContainer'.rand(1, 10000),
+				'parent' => 'Nette\DI\Container'
+			]
 		]);
 		$loader = $configurator->createRobotLoader();
 		$loader->addDirectory($baseDir . '/Nodus');
@@ -210,6 +316,21 @@ class Nodus extends Framework
 		$loader->register();
 
 		$container = $configurator->createContainer();
+
+		$application = $container->application;
+		\Nodus\SimpleModel::setContext($container);
+		$application->registerModule('Files');
+		$application->registerModule('Users');
+		$application->registerModule('Search');
+		$application->registerModule('Credit');
+		$application->registerModule('ExternalStorages');
+		$application->registerModule('FileManager');
+		$application->registerModule('Messages');
+		$application->registerModule('Debug');
+		$application->registerModule('Api');
+		$application->registerModule('Home');
+		$application->registerModule('StaticPages');
+
 		return $container;
 	}
 
@@ -220,7 +341,7 @@ class Nodus extends Framework
 	public function wantToTestWeb()
 	{
 		/** @var WebDriver $webdriver */
-		$webdriver = $this->getModule('WebDriver');
+		$webdriver = $this->getModule('NodusWebDriver');
 		$url = $this->config['domains']['web'];
 		$webdriver->_reconfigure(['url' => $url]);
 	}
@@ -232,7 +353,7 @@ class Nodus extends Framework
 	public function wantToTestMobile()
 	{
 		/** @var WebDriver $webdriver */
-		$webdriver = $this->getModule('WebDriver');
+		$webdriver = $this->getModule('NodusWebDriver');
 		$url = $this->config['domains']['mobile'];
 		$webdriver->_reconfigure(['url' => $url]);
 	}
@@ -244,7 +365,7 @@ class Nodus extends Framework
 	public function wantToTestAdmin()
 	{
 		/** @var WebDriver $webdriver */
-		$webdriver = $this->getModule('WebDriver');
+		$webdriver = $this->getModule('NodusWebDriver');
 		$url = $this->config['domains']['admin'];
 		$webdriver->_reconfigure(['url' => $url]);
 	}
@@ -256,7 +377,7 @@ class Nodus extends Framework
 	public function wantToTestPornfile()
 	{
 		/** @var WebDriver $webdriver */
-		$webdriver = $this->getModule('WebDriver');
+		$webdriver = $this->getModule('NodusWebDriver');
 		$url = $this->config['domains']['pornfile'];
 		$webdriver->_reconfigure(['url' => $url]);
 	}
