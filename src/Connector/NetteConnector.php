@@ -12,6 +12,7 @@ namespace Arachne\Codeception\Connector;
 
 use Arachne\Codeception\Http\Request as HttpRequest;
 use Arachne\Codeception\Http\Response as HttpResponse;
+use Drahak\Restful\Http\ResponseFactory as DrahakResponseFactory;
 use Exception;
 use Nette\Application\Application;
 use Nette\DI\Container;
@@ -94,12 +95,20 @@ class NetteConnector extends Client
         }
 
         $httpRequest = $container->getByType(IRequest::class);
-        $httpResponse = $container->getByType(IResponse::class);
-        if (!$httpRequest instanceof HttpRequest || !$httpResponse instanceof HttpResponse) {
-            throw new Exception('Arachne\Codeception\DI\HttpExtension is not used or conflicts with another extension.');
+        if ($httpRequest instanceof HttpRequest) {
+            $httpRequest->reset();
         }
-        $httpRequest->reset();
-        $httpResponse->reset();
+
+        $httpResponse = $container->getByType(IResponse::class);
+        if ($httpResponse instanceof HttpResponse) {
+            $httpResponse->reset();
+            // Drahak fix ><
+			// Drahak REST extension uses own response factory which ignores Arachne http response
+//            $httpResponseFactory = $container->getByType(DrahakResponseFactory::class, false);
+//            if ($httpResponseFactory) {
+//            	$httpResponseFactory->setResponse($httpResponse);
+//			}
+        }
 
         try {
             ob_start();
